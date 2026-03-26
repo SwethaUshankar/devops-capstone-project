@@ -14,6 +14,7 @@ spec:
       image: alpine:3
       command: [/bin/echo]
       args: ["$(params.message)"]
+
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
@@ -37,51 +38,12 @@ spec:
         #!/usr/bin/env sh
         set -eu
         echo "Removing all files from ${WORKSPACE_SOURCE_PATH} ..."
-        # Delete any existing contents of the directory if it exists.
-        #
-        # We don't just "rm -rf ${WORKSPACE_SOURCE_PATH}" because ${WORKSPACE_SOURCE_PATH} might be "/"
-        # or the root of a mounted volume.
         if [ -d "${WORKSPACE_SOURCE_PATH}" ] ; then
-          # Delete non-hidden files and directories
           rm -rf "${WORKSPACE_SOURCE_PATH:?}"/*
-          # Delete files and directories starting with . but excluding ..
           rm -rf "${WORKSPACE_SOURCE_PATH}"/.[!.]*
-          # Delete files and directories starting with .. plus any other character
           rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
         fi
----
-apiVersion: tekton.dev/v1beta1
-kind: Task
-metadata:
-  name: buildah
-spec:
-  description: Build and push an image with Buildah.
-  workspaces:
-    - name: source
-  params:
-    - name: IMAGE
-      type: string
-      description: Full image name to build and push
-    - name: BUILDER_IMAGE
-      type: string
-      default: quay.io/buildah/stable:v1.17.0
-    - name: DOCKERFILE
-      type: string
-      default: ./Dockerfile
-    - name: CONTEXT
-      type: string
-      default: .
-  steps:
-    - name: build-and-push
-      image: $(params.BUILDER_IMAGE)
-      workingDir: $(workspaces.source.path)
-      securityContext:
-        privileged: true
-      script: |
-        #!/usr/bin/env sh
-        set -eu
-        buildah bud --format=docker -f $(params.DOCKERFILE) -t $(params.IMAGE) $(params.CONTEXT)
-        buildah push $(params.IMAGE)
+
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
